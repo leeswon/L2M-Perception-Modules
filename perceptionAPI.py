@@ -1,3 +1,4 @@
+from abc import abstractmethod
 
 class L2MClassifier():
     @abstractmethod

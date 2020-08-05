@@ -22,3 +22,4 @@ class L2MClassifier():
     @abstractmethod
     def train(self, task_info, X, y):
         # Optimize trainable parameters according to the task (task_info) and data (X and y)
+        raise NotImplementedError

@@ -16,6 +16,8 @@ class ClassifierDataGenerator():
         self.obj_list_to_classify = object_to_classify
         self.img_crop_size = img_crop_size      ## size of cropped images for training data
         self.buffer_max_size = buffer_max_size
+        self.obj_overlap_ratio = 0.6
+        self.max_sample_per_step = 3
         self.reset()
 
     def getBufferSize(self):
@@ -33,6 +35,18 @@ class ClassifierDataGenerator():
         ## buffer : list of tuples of (image and label)
         self.buffer = []
 
+    def _genLabelOnPatch(self, seg_patch):
+        obj_pixel_counts = np.zeros(len(self.obj_list_to_classify))
+        for row_cnt in range(seg_patch.shape[0]):
+            for col_cnt in range(seg_patch.shape[1]):
+                obj_index = self.obj_list_to_classify.index(int(seg_patch[row_cnt, col_cnt])) if int(seg_patch[row_cnt, col_cnt]) in self.obj_list_to_classify else -1
+                if obj_index > -1:
+                    obj_pixel_counts[obj_index] += 1
+        if (obj_pixel_counts.max()/(seg_patch.shape[0]*seg_patch.shape[1])) >= self.obj_overlap_ratio:
+            return obj_pixel_counts.argmax()
+        else:
+            return -1
+
     def removeSamples(self):
         num_samples_to_remove = self.getBufferSize() - self.getBufferMaxSize()
         if num_samples_to_remove > 0:
@@ -49,3 +63,34 @@ class ClassifierDataGenerator():
         1) rgb_img : RGB image to crop and keep as training sample
         2) semantic_seg : semantic segmentation which gives information of object (class) labels
         '''
+        assert (rgb_img.shape[0]==semantic_seg.shape[0] and rgb_img.shape[1]==semantic_seg.shape[1]), "Given RGB image and semantic segmentation mis-match!"
+
+        temp_patch_and_label = []
+        for row_cnt in range(rgb_img.shape[0]//self.img_crop_size[0]):
+            for col_cnt in range(rgb_img.shape[1]//self.img_crop_size[1]):
+                rgb_patch = rgb_img[row_cnt*self.img_crop_size[0]:(row_cnt+1)*self.img_crop_size[0], col_cnt*self.img_crop_size[1]:(col_cnt+1)*self.img_crop_size[1], :]
+                semantic_patch = semantic_seg[row_cnt*self.img_crop_size[0]:(row_cnt+1)*self.img_crop_size[0], col_cnt*self.img_crop_size[1]:(col_cnt+1)*self.img_crop_size[1]]
+                label_of_patch = self._genLabelOnPatch(semantic_patch)
+
+                if label_of_patch > -1:
+                    temp_patch_and_label.append((rgb_patch, label_of_patch))
+
+        num_samples = len(temp_patch_and_label)
+        if num_samples > 0:
+            indices = list(range(num_samples))
+            shuffle(indices)
+            for sample_cnt in range(min(num_samples, self.max_sample_per_step)):
+                self.buffer.append(temp_patch_and_label[indices[sample_cnt]])
+            self.removeSamples()
+
+
+    def getSamples(self, batch_size):
+        training_batch_x, training_batch_y = [], []
+        indices = list(range(self.getBufferSize()))
+        shuffle(indices)
+
+        for cnt in range(batch_size):
+            training_batch_x.append(self.buffer[indices[cnt]][0])
+            training_batch_y.append(self.buffer[indices[cnt]][1])
+
+        return np.array(training_batch_x), np.array(training_batch_y)

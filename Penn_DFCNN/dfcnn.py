@@ -46,7 +46,9 @@ class DeconvolutionalFactorizedCNN(L2MClassifier):
 
         self.sess = tf.get_default_session()
         if self.sess is None:
-            self.sess = tf.Session()
+            config = tf.ConfigProto()
+            config.gpu_options.allow_growth = True
+            self.sess = tf.Session(config=config)
 
         #### placeholder of model
         self.dropout_prob = tf.placeholder(dtype=tf.float32)
@@ -128,6 +130,8 @@ class DeconvolutionalFactorizedCNN(L2MClassifier):
         self.update_loss()
         self.update_accuracy()
         self.update_opt()
+
+        self.sess.run(tf.global_variables_initializer())
 
     def update_eval(self):
         self.eval.append(tf.nn.softmax(self.task_models[-1][-1]))

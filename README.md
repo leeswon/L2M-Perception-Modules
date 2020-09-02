@@ -2,6 +2,11 @@
 
 This is for integration of perception (especially classifier) modules of L2M project.
 
+## Existing Methods
+1. Brown GCN
+1. Penn DF-CNN
+1. USC MAML
+
 ## Instruction prior to usage
 1. Install [Habitat API](https://github.com/facebookresearch/habitat-api) and [Habitat Sim](https://github.com/facebookresearch/habitat-sim).
 1. Download MatterPort3D data as follows (check [here](https://github.com/facebookresearch/habitat-api#data)):

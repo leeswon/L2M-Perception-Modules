@@ -1,3 +1,12 @@
+#!/usr/bin/env python3
+
+"""
+File: dfcnn.py
+Email: leeswon@seas.upenn.edu
+
+Description: Generates DF-CNN model for training/evaluation on lifelong learning scenario
+"""
+
 import numpy as np
 import tensorflow as tf
 from perceptionAPI import L2MClassifier

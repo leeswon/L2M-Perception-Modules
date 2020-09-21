@@ -10,6 +10,7 @@ Usage: python usc_maml_classifier.py
 from abc import abstractmethod
 
 import random
+import copy
 import numpy as np
 
 import torch
@@ -51,32 +52,53 @@ class L2MClassifier():
 class MAMLClassifier(L2MClassifier):
     """docstring for MAMLClassifier"""
 
-    def __init__(self, model, fast_lr, adaptation_steps, shots, ways, device):
+    def __init__(self, model, fast_lr, adaptation_steps, shots=8, ways=8, device=None):
         super(MAMLClassifier, self).__init__()
+        if device is None:
+            device = torch.device('cpu')
         self.model = model
+        self.model.to(device)
         self.maml = l2l.algorithms.MAML(model, lr=fast_lr, first_order=False)
         self.loss = nn.CrossEntropyLoss(reduction='mean')
         self.adaptation_steps = adaptation_steps
         self.shots = shots
         self.ways = ways
         self.device = device
+        self.optimizer = torch.optim.Adam(self.model)
+        self.task_models = {}
 
     def addNewTask(self, task_info=None, num_classes=None):
         pass
 
+    def _preprocess_input(self, X, y=None):
+        # NOTE: Might have to resize and normalized X.
+        X = torch.from_numpy(X)
+        if y is not None:
+            y = torch.from_numpy(y)
+        return X, y
+
     def inference(self, task_info, X=None):
-        pass
+        task_id = task_info.get('task_index')
+        task_model = self.task_models[task_id]
+        X, _ = self._preprocess_input(X)
+        return task_model(X).argmax(dim=1, keepdim=True).detach().numpy()
 
     def train(self, task_info, X=None, y=None):
         learner = self.maml.clone()
-        evaluation_error, evaluation_accuracy = fast_adapt(task_info,
-                                                           learner,
-                                                           self.loss,
-                                                           self.adaptation_steps,
-                                                           self.shots,
-                                                           self.ways,
-                                                           self.device)
-        return evaluation_error, evaluation_accuracy
+        X, y = self._preprocess_input(X, y)
+        evaluation_error, evaluation_accuracy = fast_adapt(
+            (X, y),
+            learner,
+            self.loss,
+            self.adaptation_steps,
+            self.shots,
+            self.ways,
+            self.device,
+        )
+        self.optimizer.zero_grad()
+        evaluation_error.backward()
+        self.optimizer.step()
+        self.task_model[task_info.get('task_index')] = copy.deepcopy(learner)
 
 
 def accuracy(predictions, targets):
@@ -177,4 +199,5 @@ def main(
 
 
 if __name__ == '__main__':
-    main()
+#    main()
+    print('Please use within testMain.py. (Edit lines 80 and 103.)')
